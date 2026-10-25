@@ -4,23 +4,24 @@
 
 ## 開発・起動
 
-Node.js 20.9以上を用意してください（新しいPDF.jsの推奨環境はNode.js 22以上。ブラウザでPDFを処理します）。
+miseでBun 1.3.14をインストールしてください。
 
 ```sh
-npm install
-npm run dev
+mise install
+mise exec -- bun install
+mise exec -- bun --bun run dev
 ```
 
-http://localhost:3000 を開きます。インストール時にPDF.jsのworker・日本語CMap・標準フォント・WASMをpublicにコピーします。
+http://localhost:3000 を開きます。インストール時にPDF.jsのworker・日本語CMap・標準フォント・WASMをpublicにコピーします。開発・ビルド・スクリプト実行にはmise管理のBunを使用します。
 
 ```sh
-npm test
-npm run typecheck
-npm run build
-npm start
+mise exec -- bun --bun run test
+mise exec -- bun --bun run typecheck
+mise exec -- bun --bun run build
+mise exec -- bun --bun run start
 ```
 
-主要操作の自動ブラウザ検証は、別ターミナルで `npm run dev` を起動し、`npx playwright install chromium` の後に `node scripts/check-browser.mjs` を実行してください。PDF読み込み、校正とエラー、四角形・円形、寸法変更、回転、削除、ズーム、パン、移動、画面サイズ変更、再読み込み復元、ページ切替を確認します。座標変換の単体テスト、本番ビルド、TypeScriptチェックも確認済みです。
+主要操作の自動ブラウザ検証は、別ターミナルで `mise exec -- bun --bun run dev` を起動し、`mise exec -- bunx --bun playwright install chromium` の後に `mise exec -- bun scripts/check-browser.mjs` を実行してください。PDF読み込み、校正とエラー、四角形・円形、寸法変更、回転、削除、ズーム、パン、移動、画面サイズ変更、再読み込み復元、ページ切替を確認します。座標変換の単体テスト、本番ビルド、TypeScriptチェックも確認済みです。
 
 ## 使い方
 
