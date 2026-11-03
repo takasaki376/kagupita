@@ -8,7 +8,7 @@ const errors=[];page.on('pageerror',e=>errors.push(e.message));
 try{
  await page.goto(process.env.TEST_BASE_URL??'http://localhost:3000');
  await page.getByRole('button',{name:'PDFを選んではじめる'}).waitFor();
- await page.locator('input[type=file]').setInputFiles({name:'検証図面.pdf',mimeType:'application/pdf',buffer:pdf()});
+ await page.locator('input[accept="application/pdf,.pdf"]').setInputFiles({name:'検証図面.pdf',mimeType:'application/pdf',buffer:pdf()});
  await page.waitForFunction(()=>document.querySelector('canvas')?.width>0);
  await page.getByText('PDFを読み込んでいます…').waitFor({state:'hidden'});
  const stage=page.locator('.stage'),box=await stage.boundingBox();
@@ -19,24 +19,31 @@ try{
  await cards.nth(0).locator('input').nth(0).fill('0');await cards.nth(0).locator('input').nth(1).fill('0');
  await cards.nth(1).locator('input').nth(0).fill('5000');await cards.nth(1).locator('input').nth(1).fill('0');
  await page.getByRole('button',{name:'この2点で校正する'}).click();
+ await page.getByRole('navigation',{name:'ページ一覧'}).waitFor();assert.equal(await page.locator('.page-thumbnail').count(),2);
+ assert.equal(await page.locator('header').evaluate(el=>el.getBoundingClientRect().height),48);
+ assert.equal(await page.locator('.tools').getByRole('button',{name:'PDF変更',exact:true}).count(),0);
+ assert.equal(await page.locator('.tools').getByRole('button',{name:'範囲指定',exact:true}).count(),0);
  await page.getByRole('button',{name:'▭ 四角形',exact:true}).click();
  await page.mouse.move(box.x+150,box.y+200);await page.mouse.down();await page.mouse.move(box.x+240,box.y+260,{steps:5});await page.mouse.up();
  await page.locator('.right').getByLabel('幅',{exact:true}).fill('1000');
  await page.locator('.right').getByLabel('奥行き',{exact:true}).fill('500');
+ assert.equal(await page.locator('.inspector-title').count(),0);assert.ok((await page.locator('.right').getByLabel('幅',{exact:true}).boundingBox()).y<(await page.locator('.right .two-fields input').first().boundingBox()).y);
  const saved=await page.evaluate(async()=>{await new Promise(r=>setTimeout(r,900));return new Promise((resolve,reject)=>{const req=indexedDB.open('kagupita',1);req.onsuccess=()=>{const tx=req.result.transaction('plans');const r=tx.objectStore('plans').getAll();r.onsuccess=()=>resolve(r.result[0]);r.onerror=()=>reject(r.error);};});});
  const f=saved.pages[1].furniture[0];assert.equal(f.width,1000);assert.equal(f.depth,500);
  const rect=page.locator('.furniture rect').first();const before=await rect.boundingBox();
  await page.getByRole('button',{name:'拡大',exact:true}).click();const after=await rect.boundingBox();assert.ok(Math.abs(after.width/before.width-1.2)<.02);
- await page.getByRole('button',{name:'✥ パン',exact:true}).click();await page.mouse.move(box.x+600,box.y+400);await page.mouse.down();await page.mouse.move(box.x+650,box.y+420);await page.mouse.up();
- await page.getByRole('button',{name:'↖ 選択',exact:true}).click();
+ assert.equal(await page.getByRole('button',{name:'✥ パン',exact:true}).count(),0);assert.equal(await page.getByRole('button',{name:'↖ 選択',exact:true}).count(),0);
+ const panX=await page.locator('.right .two-fields input').first().inputValue(),beforePan=await rect.boundingBox();
+ await page.mouse.move(box.x+550,box.y+400);await page.mouse.down();await page.mouse.move(box.x+600,box.y+420);await page.mouse.up();
+ const afterPan=await rect.boundingBox();assert.ok(Math.abs(afterPan.x-beforePan.x-50)<1);assert.ok(Math.abs(afterPan.y-beforePan.y-20)<1);assert.equal(await page.locator('.right .two-fields input').first().inputValue(),panX);
  const fb=await rect.boundingBox();await page.mouse.move(fb.x+fb.width/2,fb.y+fb.height/2);await page.mouse.down();await page.mouse.move(fb.x+fb.width/2+30,fb.y+fb.height/2+20,{steps:4});await page.mouse.up();
  await page.waitForTimeout(1000);const movedX=await page.locator('.right .two-fields input').first().inputValue();assert.notEqual(Number(movedX),Math.round(f.x*10)/10);
  await page.setViewportSize({width:1200,height:900});
  assert.equal(await page.locator('.right').getByLabel('幅',{exact:true}).inputValue(),'1000');
  await page.reload();await page.getByText('PDFを読み込んでいます…').waitFor({state:'hidden'});await page.locator('.furniture').waitFor();
  await page.locator('.furniture-list button').click();assert.equal(await page.locator('.right .two-fields input').first().inputValue(),movedX);assert.equal(await page.locator('.right').getByLabel('幅',{exact:true}).inputValue(),'1000');
- await page.getByLabel('表示ページ',{exact:true}).selectOption('2');await page.getByText('PDFを読み込んでいます…').waitFor({state:'hidden'});assert.equal(await page.locator('.furniture').count(),0);assert.equal(await page.getByRole('button',{name:'▭ 四角形',exact:true}).isDisabled(),true);
- await page.getByLabel('表示ページ',{exact:true}).selectOption('1');await page.locator('.furniture').waitFor();
+ await page.getByRole('button',{name:'2ページを表示',exact:true}).click();await page.getByText('PDFを読み込んでいます…').waitFor({state:'hidden'});assert.equal(await page.locator('.furniture').count(),0);assert.equal(await page.getByRole('button',{name:'▭ 四角形',exact:true}).isDisabled(),true);
+ await page.getByRole('button',{name:'1ページを表示',exact:true}).click();await page.locator('.furniture').waitFor();
  await page.getByText('PDFを読み込んでいます…').waitFor({state:'hidden'});
  await page.getByRole('button',{name:'◯ 円形',exact:true}).click();
  const currentBox=await stage.boundingBox();await page.mouse.move(currentBox.x+250,currentBox.y+300);await page.mouse.down();await page.mouse.move(currentBox.x+330,currentBox.y+380,{steps:4});await page.mouse.up();
@@ -45,27 +52,33 @@ try{
  await page.getByRole('button',{name:'↻ 90° 回転',exact:true}).click();assert.equal(await page.locator('.right').getByLabel('回転角度').inputValue(),'120');
  const handle=page.locator('[aria-label="回転ハンドル"]');const hb=await handle.boundingBox();await page.mouse.move(hb.x+hb.width/2,hb.y+hb.height/2);await page.mouse.down();await page.mouse.move(hb.x+hb.width/2+40,hb.y+hb.height/2+30,{steps:5});await page.mouse.up();assert.notEqual(await page.locator('.right').getByLabel('回転角度').inputValue(),'120');
  await page.getByRole('button',{name:'家具を削除',exact:true}).click();assert.equal(await page.locator('.furniture').count(),1);
+ await page.locator('summary').filter({hasText:'実寸を合わせる'}).click();
  await cards.nth(1).locator('input').nth(0).fill('0');await page.getByRole('button',{name:'この2点で校正する'}).click();await page.getByRole('alert').filter({hasText:'2点の実寸座標が同じ'}).waitFor();
  await cards.nth(1).locator('input').nth(0).fill('5000');await page.getByRole('button',{name:'この2点で校正する'}).click();
  await page.locator('.furniture-list button').click();await page.waitForTimeout(1000);
  const widthValue=await page.locator('.right').getByLabel('幅',{exact:true}).inputValue();
  const positionValue=await page.locator('.right .two-fields input').first().inputValue();
+ await page.locator('summary').filter({hasText:'実寸を合わせる'}).click();
  await page.locator('summary').filter({hasText:'実寸を合わせる'}).click();assert.equal(await cards.first().isVisible(),false);
  await page.locator('summary').filter({hasText:'実寸を合わせる'}).click();assert.equal(await cards.first().isVisible(),true);
+ await page.locator('summary').filter({hasText:'図面・ページ設定'}).click();
  await page.locator('summary').filter({hasText:'図面・ページ設定'}).click();assert.equal(await page.getByLabel('表示ページ',{exact:true}).isVisible(),false);
  await page.locator('summary').filter({hasText:'図面・ページ設定'}).click();
  const normalBox=await stage.boundingBox();
- await page.getByRole('button',{name:'⚙ 初期設定',exact:true}).click();assert.equal(await page.locator('.left').isVisible(),false);assert.ok((await stage.boundingBox()).width>normalBox.width+200);
+ await page.getByRole('button',{name:'左パネルを閉じる',exact:true}).click();assert.equal(await page.locator('.left').isVisible(),false);assert.ok((await stage.boundingBox()).width>normalBox.width+200);
  const expandedBox=await stage.boundingBox();
- await page.getByRole('button',{name:'⛶ 全画面',exact:true}).click();assert.equal(await page.locator('header').isVisible(),false);assert.equal(await page.locator('.right').isVisible(),true);assert.ok((await stage.boundingBox()).height>expandedBox.height+70);
+ await page.getByRole('button',{name:'⛶ 全画面',exact:true}).click();assert.equal(await page.locator('header').isVisible(),false);assert.equal(await page.locator('.right').isVisible(),true);assert.ok((await stage.boundingBox()).height>expandedBox.height+40);
  assert.equal(await page.locator('.right').getByLabel('幅',{exact:true}).inputValue(),widthValue);assert.equal(await page.locator('.right .two-fields input').first().inputValue(),positionValue);
  await page.locator('.right').getByLabel('幅',{exact:true}).fill('1200');assert.equal(await page.locator('.right').getByLabel('幅',{exact:true}).inputValue(),'1200');
- const chooser=page.waitForEvent('filechooser');await page.getByRole('button',{name:'PDF変更',exact:true}).click();await chooser;
+
  await page.screenshot({path:'tests/fullscreen-preview.png',fullPage:true});
  await page.keyboard.press('Escape');assert.equal(await page.locator('header').isVisible(),true);assert.equal(await page.locator('.left').isVisible(),false);
- await page.getByRole('button',{name:'⚙ 初期設定',exact:true}).click();assert.equal(await page.locator('.left').isVisible(),true);
+ await page.getByRole('button',{name:'左パネルを開く',exact:true}).click();assert.equal(await page.locator('.left').isVisible(),true);
  await page.getByRole('button',{name:'⛶ 全画面',exact:true}).click();await page.getByRole('button',{name:'↙ 全画面終了',exact:true}).click();assert.equal(await page.locator('.left').isVisible(),true);
+ const chooser=page.waitForEvent('filechooser');await page.getByRole('button',{name:'PDF変更',exact:true}).click();await chooser;
  await page.screenshot({path:'tests/browser-preview.png',fullPage:true});
+ assert.equal(await page.locator('.color-palette').isVisible(),false);
+ await page.locator('.color-picker>summary').click();
  assert.equal(await page.locator('.color-palette button').count(),16);
  await page.getByRole('button',{name:'ブラウン',exact:true}).click();assert.equal(await page.locator('.furniture-color input[type=color]').inputValue(),'#916747');
  await page.locator('.furniture-color input[type=color]').fill('#123456');assert.equal(await page.locator('.furniture-color input[type=color]').inputValue(),'#123456');
@@ -83,6 +96,7 @@ try{
  const getZoom=()=>page.locator('.tools>span').innerText();const baseZoom=parseInt(await getZoom());
  const beforeTouch=await page.locator('.right .two-fields input').first().inputValue();
  const touch=(type,points)=>cdp.send('Input.dispatchTouchEvent',{type,touchPoints:points.map(([x,y,id])=>({x,y,id,radiusX:2,radiusY:2}))});
+ const paperBefore=await page.locator('.paper').getAttribute('style');await touch('touchStart',[[touchBox.x+450,touchBox.y+300,1]]);await touch('touchMove',[[touchBox.x+475,touchBox.y+310,1]]);await touch('touchEnd',[]);assert.notEqual(await page.locator('.paper').getAttribute('style'),paperBefore);assert.equal(await page.locator('.right .two-fields input').first().inputValue(),beforeTouch);
  await touch('touchStart',[[touchBox.x+150,touchBox.y+200,1],[touchBox.x+250,touchBox.y+200,2]]);
  await touch('touchMove',[[touchBox.x+100,touchBox.y+200,1],[touchBox.x+300,touchBox.y+200,2]]);await page.waitForTimeout(100);
  assert.ok(Math.abs(parseInt(await getZoom())/baseZoom-2)<.02);
@@ -90,6 +104,7 @@ try{
  await touch('touchEnd',[]);await page.locator('.furniture-list button').click();assert.equal(await page.locator('.right .two-fields input').first().inputValue(),beforeTouch);assert.equal(await page.evaluate(()=>visualViewport.scale),1);
  const outsideZoom=await getZoom();await touch('touchStart',[[40,500,1],[100,500,2]]);await touch('touchMove',[[20,500,1],[150,500,2]]);await touch('touchEnd',[]);assert.equal(await getZoom(),outsideZoom);assert.equal(await page.evaluate(()=>visualViewport.scale),1);
  const prevented=await stage.evaluate(el=>{const event=new WheelEvent('wheel',{deltaY:-100,ctrlKey:true,bubbles:true,cancelable:true});el.dispatchEvent(event);return event.defaultPrevented;});assert.equal(prevented,true);
+ await page.locator('summary').filter({hasText:'図面・ページ設定'}).click();
  await page.getByRole('button',{name:'範囲指定',exact:true}).click();const areaBox=await stage.boundingBox();
  const centerBefore=await page.locator('.right .two-fields input').count();assert.equal(centerBefore,0);
  await page.mouse.move(areaBox.x+130,areaBox.y+170);await page.mouse.down();await page.mouse.move(areaBox.x+350,areaBox.y+390,{steps:5});await page.mouse.up();
@@ -98,13 +113,63 @@ try{
  await page.getByRole('button',{name:'拡大',exact:true}).click();await page.getByRole('button',{name:'全体',exact:true}).click();const fitted=await page.locator('.drawing-area rect').boundingBox();assert.ok(Math.abs(fitted.width-areaSize.width)<1);
  assert.ok(fitted.x>=areaBox.x+30&&fitted.x+fitted.width<=areaBox.x+areaBox.width-30);
  const areaAttributes=await page.locator('.drawing-area rect').evaluate(el=>['x','y','width','height'].map(k=>el.getAttribute(k)));
+ await page.waitForFunction(()=>{const c=document.querySelector('.page-thumbnail.active canvas');return c&&Math.abs(c.width/c.height-1)<.02;});assert.equal(await page.locator('.page-thumbnail .furniture').count(),0);
  await page.waitForTimeout(1000);await page.reload();await page.locator('.drawing-area rect').waitFor();await page.waitForFunction(()=>document.querySelector('canvas')?.width>0&&document.querySelectorAll('[aria-label="表示ページ"] option').length===2);await page.getByText('PDFを読み込んでいます…').waitFor({state:'hidden'});
  assert.deepEqual(await page.locator('.drawing-area rect').evaluate(el=>['x','y','width','height'].map(k=>el.getAttribute(k))),areaAttributes);
  const restored=await page.locator('.drawing-area rect').boundingBox(),restoredStage=await stage.boundingBox();assert.ok(restored.width<=restoredStage.width-60&&restored.height<=restoredStage.height-60);assert.ok(Math.abs(restored.width-(restoredStage.width-64))<1||Math.abs(restored.height-(restoredStage.height-64))<1);
  await page.locator('.furniture-list button').click();assert.equal(await page.locator('.right .two-fields input').first().inputValue(),beforeTouch);
- await page.getByLabel('表示ページ',{exact:true}).selectOption('2');await page.getByText('PDFを読み込んでいます…').waitFor({state:'hidden'});assert.equal(await page.locator('.drawing-area').count(),0);
- await page.getByLabel('表示ページ',{exact:true}).selectOption('1');await page.locator('.drawing-area').waitFor();await page.getByText('PDFを読み込んでいます…').waitFor({state:'hidden'});
+ await page.getByRole('button',{name:'2ページを表示',exact:true}).click();await page.getByText('PDFを読み込んでいます…').waitFor({state:'hidden'});assert.equal(await page.locator('.drawing-area').count(),0);
+ await page.getByRole('button',{name:'1ページを表示',exact:true}).click();await page.locator('.drawing-area').waitFor();await page.getByText('PDFを読み込んでいます…').waitFor({state:'hidden'});
  await page.screenshot({path:'tests/drawing-area-preview.png',fullPage:true});
+ await page.locator('summary').filter({hasText:'図面・ページ設定'}).click();
  await page.getByRole('button',{name:'範囲解除',exact:true}).click();assert.equal(await page.locator('.drawing-area').count(),0);
- assert.deepEqual(errors,[]);console.log('PASS: 主要操作 / タッチズーム / 色選択 / 図面範囲指定・全体表示・保存復元・ページ切替・範囲解除 / 家具座標保持');
+ for(const shape of ['rect','circle'])for(const method of ['click','drag','tap','touch-drag']){
+  const count=await page.locator('.furniture').count();
+  await page.getByRole('button',{name:shape==='rect'?'▭ 四角形':'◯ 円形',exact:true}).click();
+  const box=await stage.boundingBox(),x=box.x+150,y=box.y+220;
+  const paper=await page.locator('.paper').getAttribute('style');
+  if(method==='click')await page.mouse.click(x,y);
+  else if(method==='drag'){await page.mouse.move(x,y);await page.mouse.down();await page.mouse.move(x+85,y+60,{steps:6});await page.mouse.up();}
+  else{await touch('touchStart',[[x,y,1]]);if(method==='touch-drag'){for(let step=1;step<=6;step++)await touch('touchMove',[[x+85*step/6,y+60*step/6,1]]);}await touch('touchEnd',[]);}
+  await page.waitForFunction(expected=>document.querySelectorAll('.furniture').length===expected,count+1);
+  assert.equal(await page.locator('.paper').getAttribute('style'),paper,`${shape} ${method}: drawing must not pan`);
+  if(method==='click'||method==='tap')assert.equal(await page.locator('.right').getByLabel(shape==='rect'?'幅':'直径',{exact:true}).inputValue(),shape==='rect'?'900':'600');
+  assert.equal(await page.locator('.stage').getAttribute('class'),'stage mode-select');
+  if(method==='drag'||method==='touch-drag'){
+   await page.locator('.right').getByLabel(shape==='rect'?'幅':'直径',{exact:true}).fill('900');if(shape==='rect')await page.locator('.right').getByLabel('奥行き',{exact:true}).fill('600');
+   await page.locator('.right').getByLabel('回転角度').fill('37');
+   if(method==='drag')await page.getByRole('button',{name:'1ページを表示',exact:true}).click();
+   const furniture=page.locator('.furniture').last();const handle=furniture.locator('[aria-label="サイズ変更 右下"]');
+   const fixed=furniture.locator('[aria-label="サイズ変更 左上"] .resize-dot');const fixedBefore=await fixed.boundingBox(),handleBox=await handle.boundingBox();const hx=handleBox.x+handleBox.width/2,hy=handleBox.y+handleBox.height/2;
+   const paperBeforeResize=await page.locator('.paper').getAttribute('style');
+   if(method==='drag'){await page.mouse.move(hx,hy);await page.mouse.down();await page.mouse.move(hx+45,hy+45,{steps:6});await page.mouse.up();}
+   else{await touch('touchStart',[[hx,hy,1]]);for(let n=1;n<=6;n++)await touch('touchMove',[[hx+45*n/6,hy+45*n/6,1]]);await touch('touchEnd',[]);}
+   assert.ok(Number(await page.locator('.right').getByLabel(shape==='rect'?'幅':'直径',{exact:true}).inputValue())>900);assert.equal(await page.locator('.right').getByLabel('回転角度').inputValue(),'37');
+   const fixedAfter=await fixed.boundingBox();assert.ok(Math.abs(fixedAfter.x-fixedBefore.x)<1&&Math.abs(fixedAfter.y-fixedBefore.y)<1,'opposite corner must stay fixed');assert.equal(await page.locator('.paper').getAttribute('style'),paperBeforeResize);
+   if(shape==='circle'){const body=await furniture.locator(':scope>circle').first().boundingBox();assert.ok(Math.abs(body.width-body.height)<1);}
+   assert.equal(await furniture.locator('.resize-handle').count(),4);
+  }
+  await page.getByRole('button',{name:'家具を削除',exact:true}).click();assert.equal(await page.locator('.furniture').count(),count);
+ }
+ await page.locator('.backup-controls>summary').click();
+ const downloadEvent=page.waitForEvent('download');await page.getByRole('button',{name:'配置案をバックアップ',exact:true}).click();const download=await downloadEvent;
+ const chunks=[];for await(const chunk of await download.createReadStream())chunks.push(chunk);const backup=Buffer.concat(chunks);const exported=JSON.parse(backup.toString('utf8'));assert.equal(exported.plan.pages[1].calibrated,true);assert.equal(exported.plan.pages[1].furniture.length,1);assert.ok(exported.plan.pdf.length>0);
+ await page.getByLabel('配置案のバックアップ',{exact:true}).setInputFiles({name:'invalid.json',mimeType:'application/json',buffer:Buffer.from('{}')});await page.getByRole('alert').filter({hasText:'バックアップを読み込めませんでした'}).waitFor();
+ await page.getByLabel('配置案のバックアップ',{exact:true}).setInputFiles({name:'backup.json',mimeType:'application/json',buffer:backup});await page.getByText('新しい配置案として復元しました。既存の配置案は保持しています。',{exact:true}).waitFor();
+ assert.equal(await page.getByLabel('保存した配置案',{exact:true}).locator('option').count(),3);assert.equal(await page.locator('.furniture').count(),1);
+ await page.waitForTimeout(1000);await page.reload();await page.locator('.furniture').waitFor();
+ const restoredPlans=await page.evaluate(()=>new Promise(resolve=>{const request=indexedDB.open('kagupita',1);request.onsuccess=()=>{const get=request.result.transaction('plans').objectStore('plans').getAll();get.onsuccess=()=>resolve(get.result.map(p=>({id:p.id,pages:p.pages,pdfLength:p.pdf.byteLength})));};}));
+ assert.equal(restoredPlans.length,2);assert.notEqual(restoredPlans[0].id,restoredPlans[1].id);assert.deepEqual(JSON.parse(JSON.stringify(restoredPlans[0].pages)),JSON.parse(JSON.stringify(restoredPlans[1].pages)));assert.equal(restoredPlans[0].pdfLength,restoredPlans[1].pdfLength);
+ await page.getByText('PDFを読み込んでいます…').waitFor({state:'hidden'});
+ await page.getByRole('button',{name:'▭ 四角形',exact:true}).click();const deleteBox=await stage.boundingBox();await page.mouse.click(deleteBox.x+300,deleteBox.y+300);assert.equal(await page.locator('.furniture').count(),2);
+ const nameInput=page.locator('.right').getByLabel('家具の名前',{exact:true});await nameInput.fill('テスト');await nameInput.press('Home');await nameInput.press('Delete');assert.equal(await nameInput.inputValue(),'スト');assert.equal(await page.locator('.furniture').count(),2);
+ const widthInput=page.locator('.right').getByLabel('幅',{exact:true});await widthInput.focus();await widthInput.press('End');await widthInput.press('Delete');assert.equal(await page.locator('.furniture').count(),2);
+ await page.mouse.click(deleteBox.x+500,deleteBox.y+450);assert.equal(await page.locator('.furniture.is-selected').count(),0);await page.keyboard.press('Delete');assert.equal(await page.locator('.furniture').count(),2);
+ await page.locator('.furniture-list button').last().click();await touch('touchStart',[[deleteBox.x+500,deleteBox.y+450,1]]);await touch('touchEnd',[]);assert.equal(await page.locator('.furniture.is-selected').count(),0);
+ await page.locator('.furniture-list button').last().click();await page.mouse.move(deleteBox.x+500,deleteBox.y+450);await page.mouse.down();await page.mouse.move(deleteBox.x+520,deleteBox.y+460,{steps:4});await page.mouse.move(deleteBox.x+500,deleteBox.y+450,{steps:4});await page.mouse.up();assert.equal(await page.locator('.furniture.is-selected').count(),1);
+ await touch('touchStart',[[deleteBox.x+500,deleteBox.y+450,1]]);await touch('touchCancel',[]);assert.equal(await page.locator('.furniture.is-selected').count(),1);
+ const selectedBody=await page.locator('.furniture.is-selected>rect').first().boundingBox();await page.mouse.click(selectedBody.x+selectedBody.width/2,selectedBody.y+selectedBody.height/2);await page.keyboard.press('Delete');assert.equal(await page.locator('.furniture').count(),1);assert.equal(await page.locator('.furniture.is-selected').count(),0);
+ await page.waitForTimeout(1000);await page.reload();await page.locator('.furniture').waitFor();assert.equal(await page.locator('.furniture').count(),1);
+ assert.deepEqual(errors,[]);console.log('PASS: Deleteキー削除・入力中保護・未選択時は削除しない / 余白クリックとタップで選択解除 / パンとキャンセルでは選択維持 / 削除結果の保存復元 / 主要操作');
 }catch(e){console.error('Browser errors:',errors);console.error(await page.locator('body').innerText());throw e;}finally{await browser.close();}
+

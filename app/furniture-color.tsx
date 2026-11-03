@@ -34,7 +34,7 @@ export default function FurnitureColor({color,onChange}:{color:string;onChange:(
  }
  function clear(){sequence.current++;setPhoto(false);setLoading(false);setSuggested([]);setError('');const c=imageCanvas.current;if(c){c.width=1;c.height=1;}}
  function input(e:React.ChangeEvent<HTMLInputElement>){const file=e.target.files?.[0];if(file)void readImage(file);e.target.value='';}
- return <section className="furniture-color" aria-label="家具の色"><h3>色 <small>{color.toUpperCase()}</small></h3>
+ return <section className="furniture-color" aria-label="家具の色"><details className="color-picker"><summary><span>色</span><span className="current-color" style={{background:color}}/><span>{color.toUpperCase()}</span><span>⌄</span></summary><div className="color-picker-panel">
   <div className="color-palette" aria-label="標準の16色">{colors.map(([name,value])=><button key={value} type="button" title={name} aria-label={name} aria-pressed={color.toLowerCase()===value} style={{background:value}} onClick={()=>onChange(value)}>{color.toLowerCase()===value?'✓':''}</button>)}</div>
   <label>自由に色を指定<input className="color" type="color" value={color} onChange={e=>onChange(e.target.value)}/></label>
   <details className="photo-color"><summary>写真から色を取り込む</summary><div className="photo-actions"><button type="button" disabled={loading} onClick={()=>camera.current?.click()}>撮影</button><button type="button" disabled={loading} onClick={()=>upload.current?.click()}>画像を選択</button></div>
@@ -44,5 +44,5 @@ export default function FurnitureColor({color,onChange}:{color:string;onChange:(
    {photo&&<><p>家具の部分をタップすると、その場所の色を反映します。</p><div className="photo-swatches" aria-label="画像から抽出した色">{suggested.map((v,i)=><button type="button" key={i} style={{background:v}} aria-label={`抽出色 ${v}`} title={v} onClick={()=>onChange(v)}/>)}</div><button type="button" className="full" onClick={clear}>画像を閉じる</button></>}
    <p>画像は保存・送信しません。撮影機能はスマホの対応ブラウザで利用できます。照明や背景によって抽出色が変わるため、家具の部分を選んでください。</p>
   </details>
- </section>;
+ </div></details></section>;
 }

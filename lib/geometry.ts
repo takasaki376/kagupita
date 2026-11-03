@@ -1,6 +1,17 @@
 export type Point = { x: number; y: number };
 export type Calibration = { pdf: Point; real: Point };
 export type Furniture = { id: string; name: string; shape: 'rect' | 'circle'; color: string; x: number; y: number; width: number; depth: number; angle: number };
+export type Corner = { x: -1 | 1; y: -1 | 1 };
+/** Resize in the furniture's real-world axes, keeping the opposite corner fixed. */
+export function resizeFurniture(f:Furniture,corner:Corner,delta:Point):Partial<Furniture>{
+ const angle=f.angle*Math.PI/180,c=Math.cos(angle),s=Math.sin(angle);
+ const dx=c*delta.x+s*delta.y,dy=-s*delta.x+c*delta.y;
+ const originalDepth=f.shape==='circle'?f.width:f.depth;
+ let width=Math.max(1,f.width+corner.x*dx),depth=Math.max(1,originalDepth+corner.y*dy);
+ if(f.shape==='circle')width=depth=Math.max(1,f.width+(corner.x*dx+corner.y*dy)/2);
+ const x=corner.x*(width-f.width)/2,y=corner.y*(depth-originalDepth)/2;
+ return {width,depth,x:f.x+c*x-s*y,y:f.y+s*x+c*y};
+}
 export function transform(points: Calibration[]) {
   if (points.length !== 2) throw new Error('校正点を2つ指定してください。');
   const [p, q] = points;
