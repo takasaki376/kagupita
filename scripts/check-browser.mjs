@@ -170,6 +170,25 @@ try{
  await touch('touchStart',[[deleteBox.x+500,deleteBox.y+450,1]]);await touch('touchCancel',[]);assert.equal(await page.locator('.furniture.is-selected').count(),1);
  const selectedBody=await page.locator('.furniture.is-selected>rect').first().boundingBox();await page.mouse.click(selectedBody.x+selectedBody.width/2,selectedBody.y+selectedBody.height/2);await page.keyboard.press('Delete');assert.equal(await page.locator('.furniture').count(),1);assert.equal(await page.locator('.furniture.is-selected').count(),0);
  await page.waitForTimeout(1000);await page.reload();await page.locator('.furniture').waitFor();assert.equal(await page.locator('.furniture').count(),1);
- assert.deepEqual(errors,[]);console.log('PASS: Deleteキー削除・入力中保護・未選択時は削除しない / 余白クリックとタップで選択解除 / パンとキャンセルでは選択維持 / 削除結果の保存復元 / 主要操作');
+ await page.getByText('PDFを読み込んでいます…').waitFor({state:'hidden'});await page.locator('.furniture-list button').click();
+ const ipadWidth=page.locator('.right').getByLabel('幅',{exact:true});await ipadWidth.click();
+ assert.deepEqual(await ipadWidth.evaluate(el=>[el.selectionStart,el.selectionEnd]),[0,(await ipadWidth.inputValue()).length]);
+ await page.keyboard.type('258');assert.equal(await ipadWidth.inputValue(),'258');
+ await ipadWidth.press('End');await ipadWidth.press('Backspace');await ipadWidth.press('Backspace');await ipadWidth.press('Backspace');assert.equal(await ipadWidth.inputValue(),'');
+ await page.keyboard.type('258');assert.equal(await ipadWidth.inputValue(),'258');
+ const imeRectBefore=await page.locator('.furniture>rect').first().getAttribute('width');
+ await ipadWidth.evaluate(el=>{el.select();el.dispatchEvent(new CompositionEvent('compositionstart',{bubbles:true,data:''}));Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(el,'１００');el.dispatchEvent(new InputEvent('input',{bubbles:true,inputType:'insertCompositionText',data:'１００',isComposing:true}));});
+ assert.equal(await ipadWidth.inputValue(),'１００');assert.equal(await page.locator('.furniture>rect').first().getAttribute('width'),imeRectBefore);
+ await ipadWidth.evaluate(el=>{el.dispatchEvent(new CompositionEvent('compositionend',{bubbles:true,data:'１００'}));el.dispatchEvent(new InputEvent('input',{bubbles:true,inputType:'insertText',data:'１００',isComposing:false}));});
+ await ipadWidth.blur();assert.equal(await ipadWidth.inputValue(),'100');
+ const imeRectAfter=Number(await page.locator('.furniture>rect').first().getAttribute('width'));assert.ok(Math.abs(imeRectAfter/Number(imeRectBefore)-100/258)<.001);
+ const tapFieldBox=await ipadWidth.boundingBox();await touch('touchStart',[[tapFieldBox.x+tapFieldBox.width/2,tapFieldBox.y+tapFieldBox.height/2,1]]);await touch('touchEnd',[]);await page.waitForTimeout(50);assert.deepEqual(await ipadWidth.evaluate(el=>[el.selectionStart,el.selectionEnd]),[0,3]);
+ await ipadWidth.fill('900');await ipadWidth.blur();
+ await page.locator('summary').filter({hasText:'実寸を合わせる'}).click();const calibrationInput=cards.nth(1).locator('input').nth(0);await calibrationInput.click();assert.deepEqual(await calibrationInput.evaluate(el=>[el.selectionStart,el.selectionEnd]),[0,4]);
+ await calibrationInput.evaluate(el=>{el.dispatchEvent(new CompositionEvent('compositionstart',{bubbles:true}));Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(el,'５０００');el.dispatchEvent(new InputEvent('input',{bubbles:true,inputType:'insertCompositionText',data:'５０００',isComposing:true}));});
+ await calibrationInput.evaluate(el=>{el.dispatchEvent(new CompositionEvent('compositionend',{bubbles:true,data:'５０００'}));el.dispatchEvent(new InputEvent('input',{bubbles:true,inputType:'insertText',data:'５０００'}));});await calibrationInput.blur();assert.equal(await calibrationInput.inputValue(),'5000');
+ await calibrationInput.fill('');assert.equal(await calibrationInput.inputValue(),'');await page.getByRole('button',{name:'この2点で校正する'}).click();await page.getByRole('alert').filter({hasText:'有効な数値'}).waitFor();await calibrationInput.fill('5000');await page.getByRole('button',{name:'この2点で校正する'}).click();
+ await page.waitForTimeout(1000);await page.reload();await page.locator('.furniture-list button').click();assert.equal(await page.locator('.right').getByLabel('幅',{exact:true}).inputValue(),'900');
+ assert.deepEqual(errors,[]);console.log('PASS: 数値フォーカス全選択・タッチ全選択 / Backspaceで空欄と再入力 / IME変換中は実寸を変更しない / 全角数字の確定・二重入力防止 / 校正入力検証 / 保存復元 / 主要操作');
 }catch(e){console.error('Browser errors:',errors);console.error(await page.locator('body').innerText());throw e;}finally{await browser.close();}
 
